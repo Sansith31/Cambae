@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webcam Video Recorder</title>
+  <style>
+    video {
+      width: 100%;
+      height: auto;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Webcam Video Recorder</h1>
+  <div>
+    <button id="startButton">Start Recording</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <button id="muteButton">Mute</button>
+  </div>
+  <video id="videoElement" autoplay playsinline></video>
+  
+  <script>
+    let stream;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let isMuted = false;
+    let isRecording = false;
+
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const muteButton = document.getElementById('muteButton');
+    const videoElement = document.getElementById('videoElement');
+
+    startButton.addEventListener('click', startRecording);
+    stopButton.addEventListener('click', stopRecording);
+    muteButton.addEventListener('click', toggleMute);
+
+    async function startRecording() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        videoElement.srcObject = stream;
+        videoElement.play();
+
+        const options = { mimeType: 'video/webm; codecs=vp9' };
+        mediaRecorder = new MediaRecorder(stream, options);
+        mediaRecorder.ondataavailable = handleDataAvailable;
+        mediaRecorder.start();
+
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        muteButton.disabled = false;
+        isRecording = true;
+      } catch (err) {
+        console.error('Error accessing media devices', err);
+      }
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      stream.getTracks().forEach(track => track.stop());
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      muteButton.disabled = true;
+      isRecording = false;
+    }
+
+    function handleDataAvailable(event) {
+      if (event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    }
+
+    function toggleMute() {
+      if (isMuted) {
+        stream.getAudioTracks()[0].enabled = true;
+        muteButton.textContent = 'Mute';
+      } else {
+        stream.getAudioTracks()[0].enabled = false;
+        muteButton.textContent = 'Unmute';
+      }
+      isMuted = !isMuted;
+    }
+
+    async function flipVideo() {
+      const videoTrack = stream.getVideoTracks()[0];
+      await videoTrack.applyConstraints({
+        advanced: [{ facingMode: (videoTrack.getSettings().facingMode === 'user') ? 'environment' : 'user' }]
+      });
+    }
+
+    // Start flipping video after a delay
+    setTimeout(flipVideo, 2000);
+  </script>
+</body>
+</html>
